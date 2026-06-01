@@ -11,6 +11,7 @@ import subprocess
 import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
 import traceback
 import time
 import sys
@@ -28,6 +29,12 @@ def try_download(url, name):
     return result.returncode == 0
 
 
+def host_matches(url, domain):
+    host = urlparse(url).hostname or ""
+    host = host.lower()
+    return host == domain or host.endswith("." + domain)
+
+
 def sync_project(task):
     name, path, url, strip, rev, linkfiles, copyfiles = task
     if path not in ["./", "."]:
@@ -37,7 +44,7 @@ def sync_project(task):
     try:
         downloaded = False
         # Only apply deprecated fallback for googlesource URLs
-        if "googlesource.com" in url:
+        if host_matches(url, "googlesource.com"):
             downloaded = try_download(url, name)
             if not downloaded:
                 if "+archive/" in url:
@@ -110,13 +117,13 @@ def main(manifest_path='manifest.xml'):
         base_url = remotes.get(remote_name)
         if not base_url:
             continue
-        if "github.com" in base_url:
+        if host_matches(base_url, "github.com"):
             url = f"{base_url}/{name}/archive/{rev}.tar.gz"
             strip = "--strip-components=1"
-        elif "googlesource.com" in base_url:
+        elif host_matches(base_url, "googlesource.com"):
             url = f"{base_url}/{name}/+archive/{rev}.tar.gz"
             strip = ""
-        elif "git.codelinaro.org" in base_url:
+        elif host_matches(base_url, "git.codelinaro.org"):
             url = f"{base_url}/{name}/-/archive/{rev}.tar.gz"
             strip = "--strip-components=1"
         else:
